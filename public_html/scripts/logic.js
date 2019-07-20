@@ -1,11 +1,14 @@
 
-var entities = [{type:"player", size:36, posX:10, posY:10, velX:0, velY:0, maxVel:10, dec:0.25, acc:1}, {type:"mob", size:72, posX:10, posY:10, velX:0.5, velY:0.1, maxVel:10, dec:0, acc:1}];
+var entities = [{type:"player", size:36, posX:10, posY:10, velX:0, velY:0, maxVel:10, dec:0.25, acc:1}, {type:"mob", size:72, posX:200, posY:300, velX:0.5, velY:0.1, maxVel:10, dec:0, acc:1}];
 var context;
 var canvas;
 var dpi;
 var keyevents = {};
 
-
+var mapSize = 500;
+var fodderSpawnRate = 1;
+var maxFodder = 100;
+var consumeTreshold = 1.1;
 
 function init(){
     canvas = document.getElementById("gameCanvas");
@@ -30,6 +33,9 @@ function tick(){
 function refresh(){
     processKeyInput();
     moveEntities();
+    spawnFodder();
+    checkCollisions();
+    checkForDeath();
 }
 function draw(){
     var playerImg = document.getElementById("playerImage");
@@ -123,6 +129,7 @@ function processKeyInput(){
 
 }
 function acceleratePlayer(direction, accMod){
+    console.log(entities[0].velX+" "+entities[0].velY);
     switch(direction){
 	case 1:
 	    entities[0].velY-=entities[0].acc*accMod;
@@ -181,7 +188,7 @@ function moveEntities(){
 
 	//set title (for debug purposes only I guess)
 	if(i===0){
-	    document.title = "speed is "+Math.sqrt(x*x+y*y)+" pix/tick";
+	    document.title = Math.trunc(entities[0].posX)+"x "+Math.trunc(entities[0].posY)+"y "+Math.trunc(Math.sqrt(x*x+y*y))+"p/t "+Math.trunc(entities[0].size);
 	}
 
 	//decelerate
@@ -242,6 +249,68 @@ function moveEntities(){
 		}
 	    }
 	}   
+    }
+}
+function randInt(max, min){
+    return Math.floor(Math.random() * (max - min) ) + min;
+}
+function spawnFodder(){
+    //count fodder
+    var fodderAmount = 0;
+    for(var i = 0; i<entities.length; i++){
+	if(entities[i].type==="fodder"){
+	    fodderAmount++;
+	}
+    }
+    if(fodderAmount>=maxFodder){
+	return;
+    }
+    
+    //spawn fodder
+    var toSpawn = fodderSpawnRate;
+    if(toSpawn+fodderAmount>maxFodder){
+	toSpawn = maxFodder-fodderAmount;
+    }
+    for(var i = 0; i<toSpawn; i++){
+	var size, posX, posY;
+	size = 9;
+	posX = randInt(-mapSize, mapSize);
+	posY = randInt(-mapSize, mapSize);
+	entities[entities.length] = {type:"fodder", size:size, posX:posX, posY:posY, velX:0, velY:0, maxVel:0, dec:0, acc:0};
+    }
+}
+function checkCollisions(){
+    for(var o = 0; o<entities.length; o++){
+	for(var i = 0; i<entities.length; i++){
+	    if(i!==o){
+		var distance = Math.sqrt( Math.pow(entities[o].posX-entities[i].posX, 2) + Math.pow(entities[o].posY-entities[i].posY, 2) );
+		var hitDistance = entities[o].size/2+entities[i].size/2;
+		if(hitDistance>=distance){
+		    collide(o, i);
+		}
+	    }
+	}
+    }
+}
+function collide(entA, entB){
+    if(entities[entA].size>entities[entB].size*consumeTreshold){
+	if(entities[entA].type!=="fodder"){
+	    entities[entA].size+=entities[entB].size*(entities[entB].size/entities[entA].size);
+	    entities.splice(entB, 1);
+	}
+    }
+    else if(entities[entB].size>entities[entA].size*consumeTreshold){
+	if(entities[entB].type!=="fodder"){
+	    entities[entB].size+=entities[entA].size*(entities[entA].size/entities[entB].size);
+	    entities.splice(entA, 1);
+	}
+    }
+    
+    
+}
+function checkForDeath(){
+    if(entities[0].type!=="player"){
+	location.reload();
     }
 }
 
