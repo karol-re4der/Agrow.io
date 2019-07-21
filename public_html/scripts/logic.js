@@ -1,16 +1,21 @@
 
-var entities = [{type:"player", size:36, posX:10, posY:10, velX:0, velY:0, maxVel:10, dec:0.2, acc:1, digesting:0}, {type:"mob", size:30, posX:300, posY:300, velX:0, velY:0, maxVel:10, dec:0, acc:1, digesting:0}];
+var entities = [{type:"player", size:3, posX:10, posY:10, vel:new Victor(0, 0), dec:0.1, acc:1, digesting:0}];
 var context;
 var canvas;
 var dpi;
 var keyevents = {};
 
-var mapSize = 5000;
+var mapSize = 100;
 var fodderSpawnRate = 1;
-var maxFodder = 500;
+var maxFodder = 1000;
 var consumeTreshold = 1.1;
-var tickSpan = 16;
-var playerApparentSize = 60;
+var tickSpan = 8;
+var playerApparentSize = 30;
+var digestionRate = 0.05;
+
+var edibleColor = "#006600";
+var neutralColor = "#737373";
+var hostileColor = "#cc0000";
 
 function init(){
     canvas = document.getElementById("gameCanvas");
@@ -43,8 +48,9 @@ function refresh(){
 function draw(){
     var playerImg = document.getElementById("playerImage");
     var mobImg = document.getElementById("mobImage");
-    var debugImage = document.getElementById("debugImage");
-    var debugImageTwo = document.getElementById("debugImageTwo");
+    var debugImg = document.getElementById("debugImage");
+    var debugImgTwo = document.getElementById("debugImageTwo");
+    var gridImg = document.getElementById("gridImage");
     
     //clear canvas
     var canvasWidth = document.getElementById("gameCanvas").width;
@@ -58,6 +64,7 @@ function draw(){
     var shiftY = (entities[0].posY-entities[0].size*2)%(gridSize);
     
     context.beginPath();
+    context.strokeStyle = "#000000";
     for(var x = 0; x<canvasWidth+gridSize; x+=gridSize){
 	context.moveTo(x-shiftX+entities[0].size, 0);
 	context.lineTo(x-shiftX+entities[0].size, canvasHeight);
@@ -70,7 +77,9 @@ function draw(){
     context.closePath();
     
     //draw player
-    context.drawImage(debugImage, canvasWidth/2-playerApparentSize/2, canvasHeight/2-playerApparentSize/2, playerApparentSize, playerApparentSize);
+    var digSize = (entities[0].size+entities[0].digesting)/entities[0].size*playerApparentSize;
+    drawCircle(canvasWidth/2-digSize/2, canvasHeight/2-digSize/2, digSize/2, edibleColor);
+    drawCircle(canvasWidth/2-playerApparentSize/2, canvasHeight/2-playerApparentSize/2, playerApparentSize/2, neutralColor);
     
     //draw objects
     for(var i = 1; i<entities.length; i++){
@@ -80,8 +89,15 @@ function draw(){
 	var relX = canvasWidth/2-(entities[0].posX-entities[i].posX)*scale;
 	var relY = canvasHeight/2-(entities[0].posY-entities[i].posY)*scale;
 	
-	if(relX-canvasWidth/2<=canvasWidth/2+relSize/2 && relY-canvasHeight/2<=canvasHeight/2+relSize/2){
-	    context.drawImage(debugImage, relX-relSize/2, relY-relSize/2, relSize, relSize);
+	if(isOnScreen(entities[i].posX, entities[i].posY, entities[i].size, canvasWidth, canvasHeight)){
+	    var entityColor = neutralColor;
+	    if(entities[i].size>=entities[0].size*consumeTreshold){
+		entityColor = hostileColor;
+	    }
+	    else if(entities[0].size>=entities[i].size*consumeTreshold){
+		entityColor = edibleColor;
+	    }
+	    drawCircle(relX-relSize/2, relY-relSize/2, relSize/2, entityColor);
 	}
     }
 }
@@ -140,124 +156,52 @@ function processKeyInput(){
 
 }
 function acceleratePlayer(direction, accMod){
+    var accVec = 0;
     switch(direction){
 	case 1:
-	    entities[0].velY-=entities[0].acc*accMod;
-	    if(entities[0].velY<-entities[0].maxVel){
-		entities[0].velY = -entities[0].maxVel;
-	    }
+	    accVec = new Victor(0, accMod*entities[0].acc);
 	    break;
 	case 2:
-	    entities[0].velX+=entities[0].acc*accMod;
-	    if(entities[0].velX>entities[0].maxVel){
-		entities[0].velX = entities[0].maxVel;
-	    }
+	    accVec = new Victor(accMod*entities[0].acc, 0);
 	    break;
 	case 3:
-	    entities[0].velY+=entities[0].acc*accMod;
-	    if(entities[0].velY>entities[0].maxVel){
-		entities[0].velY = entities[0].maxVel;
-	    }
+	    accVec = new Victor(0, -accMod*entities[0].acc);
 	    break;
 	case 4:
-	    entities[0].velX-=entities[0].acc*accMod;
-	    if(entities[0].velX<-entities[0].maxVel){
-		entities[0].velX = -entities[0].maxVel;
-	    }
+	    accVec = new Victor(-accMod*entities[0].acc, 0);
 	    break;
     }
+    
+    entities[0].vel.add(accVec);
 }
 function moveEntities(){
     for(var i = 0; i<entities.length; i++){
-	var x = entities[i].velX;
-	var y = entities[i].velY;
-	var z = Math.sqrt(x*x+y*y);
-	var A = B = C = 0;
-
-	//correct according to max velocity
-	if(z>entities[i].maxVel){
-	    C = Math.PI/2;
-	    A = Math.atan(Math.abs(y/x));
-	    B = Math.PI-(C+A);
-
-	    y = entities[i].maxVel*Math.sin(A)/Math.sin(C);
-	    x = entities[i].maxVel*Math.sin(B)/Math.sin(C);
-
-	    //correct direction
-	    if(entities[i].velX<0){
-		x = -x;
-	    }
-	    if(entities[i].velY<0){
-		y = -y;
-	    }
+	//decelerate
+	var resVec = new Victor(entities[i].vel.x, entities[i].vel.y);
+	resVec.x*=entities[i].dec;
+	resVec.y*=entities[i].dec;
+	
+	if(i===0){
+	    console.log("v "+entities[i].vel.toString());
+	    console.log("r "+resVec.toString());
+	}
+	if(resVec.length()<entities[i].acc/100){
+	    entities[i].vel = new Victor(0, 0);
+	}
+	else{
+	    entities[i].vel.subtract(resVec);
 	}
 	
 	//move
-	entities[i].posX+=x;	
-	entities[i].posY+=y;
-
-	//set title (for debug purposes only I guess)
+	entities[i].posX+=entities[i].vel.x;
+	entities[i].posY-=entities[i].vel.y;
+    
+    
+	//notify
 	if(i===0){
-	    document.title = Math.trunc(entities[0].posX)+"x "+Math.trunc(entities[0].posY)+"y "+Math.trunc(Math.sqrt(x*x+y*y))+"p/t "+Math.trunc(entities[0].size);
+	    document.title = Math.trunc(entities[i].posX)+"x "+Math.trunc(entities[i].posY)+"y "+Math.trunc(entities[i].vel.length())+"p/t s"+Math.trunc(entities[i].size);
 	}
 
-	//decelerate
-	if(Math.abs(x)<2*entities[i].dec){
-	    x = 0;
-	    entities[i].velX = x;
-	}
-	if(Math.abs(y)<2*entities[i].dec){
-	    y = 0;
-	    entities[i].velY = y;
-	}
-	if(x!==0 && y!==0){
-	    C = Math.PI/2;
-	    A = Math.atan(Math.abs(y/x));
-	    B = Math.PI-(C+A);
-
-
-	    u = Math.sqrt(x*x+y*y)-entities[i].dec;
-	    y = u*Math.sin(A)/Math.sin(C);
-	    x = u*Math.sin(B)/Math.sin(C);
-
-	    //correct directions
-	    if(entities[i].velX<0){
-		x = -x;
-	    }
-	    if(entities[i].velY<0){
-		y = -y;
-	    }
-	}
-	else if(x===0 && y!==0){
-	    if(y>0){
-		y-=entities[i].dec;
-		if(y<0){
-		    y = 0;
-		}
-	    }
-	    else{
-		y+=entities[i].dec;
-		if(y>0){
-		    y = 0;
-		}
-	    }
-	}
-	else if(x!==0 && y===0){
-	    if(x>0){
-		x-=entities[i].dec;
-		if(x<0){
-		    x = 0;
-		}
-	    }
-	    else{
-		x+=entities[i].dec;
-		if(x>0){
-		    x = 0;
-		}
-	    }
-	}
-	entities[i].velX=x;	
-	entities[i].velY=y;
     }
 }
 function randInt(max, min){
@@ -282,10 +226,17 @@ function spawnFodder(){
     }
     for(var i = 0; i<toSpawn; i++){
 	var size, posX, posY;
-	size = 9;
-	posX = randInt(-mapSize, mapSize);
-	posY = randInt(-mapSize, mapSize);
-	entities[entities.length] = {type:"fodder", size:size, posX:posX, posY:posY, velX:0, velY:0, maxVel:0, dec:0, acc:0, digesting:0};
+	size = entities[0].size/9;
+	var attempts = 0;
+	do{
+	    posX = randInt(-mapSize, mapSize);
+	    posY = randInt(-mapSize, mapSize);
+	    if(attempts>100){
+		return;
+	    }
+	    attempts++;
+	} while(isOnScreen(posX, posY, size));
+	entities[entities.length] = {type:"fodder", size:size, posX:posX, posY:posY, vel:new Victor(0, 0), dec:0, acc:0, digesting:0};
     }
 }
 function checkCollisions(){
@@ -322,12 +273,35 @@ function checkForDeath(){
 }
 function digest(){
     for(var i = 0; i<entities.length; i++){
-	console.log(entities[0].digesting);
-	if(entities[i].digesting>0){
-	    entities[i].digesting--;
-	    entities[i].size++;
+	if(entities[i].digesting>=digestionRate){
+	    entities[i].digesting-=digestionRate;
+	    entities[i].size+=digestionRate;
+	}
+	else if(entities[i].digesting>0){
+	    entities[i].size+=entities[i].digesting;
+	    entities[i].digesting = 0;
 	}
     }
+}
+function drawCircle(x, y, r, color){
+    context.beginPath();
+    context.fillStyle = color;
+    context.strokeStyle = "#000000";
+    context.arc(x+r, y+r, r, 0, 2 * Math.PI);
+    context.fill();
+    context.stroke()
+    context.closePath();
+}
+function isOnScreen(x, y, size, canvasWidth, canvasHeight){
+    var relSize = size/entities[0].size*playerApparentSize;
+    var scale = playerApparentSize/entities[0].size;
+    var relX = canvasWidth/2-(entities[0].posX-x)*scale;
+    var relY = canvasHeight/2-(entities[0].posY-y)*scale;
+
+    if(relX-canvasWidth/2<=canvasWidth/2+relSize/2 && relY-canvasHeight/2<=canvasHeight/2+relSize/2){
+	return true;
+    }
+    return false;
 }
 
 init();

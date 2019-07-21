@@ -1,13 +1,13 @@
 {
-    "name": "agrowio",
-    "version": "1.0.0",
-    "main": "path/to/main.css",
-    "ignore": [
-	".jshintrc",
-	"**/*.txt"
-    ],
-    "dependencies": {
-    },
-    "devDependencies": {
-    }
+  "name": "agrowio",
+  "version": "1.0.0",
+  "main": "path/to/main.css",
+  "ignore": [
+    ".jshintrc",
+    "**/*.txt"
+  ],
+  "dependencies": {
+    "victor": "1.1.0"
+  },
+  "devDependencies": {}
 }
