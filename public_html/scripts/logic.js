@@ -1,14 +1,16 @@
 
-var entities = [{type:"player", size:36, posX:10, posY:10, velX:0, velY:0, maxVel:10, dec:0.25, acc:1}, {type:"mob", size:72, posX:200, posY:300, velX:0.5, velY:0.1, maxVel:10, dec:0, acc:1}];
+var entities = [{type:"player", size:36, posX:10, posY:10, velX:0, velY:0, maxVel:10, dec:0.2, acc:1, digesting:0}, {type:"mob", size:30, posX:300, posY:300, velX:0, velY:0, maxVel:10, dec:0, acc:1, digesting:0}];
 var context;
 var canvas;
 var dpi;
 var keyevents = {};
 
-var mapSize = 500;
+var mapSize = 5000;
 var fodderSpawnRate = 1;
-var maxFodder = 100;
+var maxFodder = 500;
 var consumeTreshold = 1.1;
+var tickSpan = 16;
+var playerApparentSize = 60;
 
 function init(){
     canvas = document.getElementById("gameCanvas");
@@ -32,6 +34,7 @@ function tick(){
 }
 function refresh(){
     processKeyInput();
+    digest();
     moveEntities();
     spawnFodder();
     checkCollisions();
@@ -40,6 +43,8 @@ function refresh(){
 function draw(){
     var playerImg = document.getElementById("playerImage");
     var mobImg = document.getElementById("mobImage");
+    var debugImage = document.getElementById("debugImage");
+    var debugImageTwo = document.getElementById("debugImageTwo");
     
     //clear canvas
     var canvasWidth = document.getElementById("gameCanvas").width;
@@ -47,31 +52,37 @@ function draw(){
     context.clearRect(0, 0, canvasWidth, canvasHeight);
     
     //draw grid
-    var gridDensity = 8;
+    var gridSize = playerApparentSize*8-entities[0].size;
     
-    var shiftX = entities[0].posX%(canvasWidth/gridDensity);
-    var shiftY = entities[0].posY%(canvasWidth/gridDensity);
+    var shiftX = (entities[0].posX-entities[0].size*2)%(gridSize);
+    var shiftY = (entities[0].posY-entities[0].size*2)%(gridSize);
     
     context.beginPath();
-    for(var x = 0; x<canvasWidth+canvasWidth/gridDensity; x+=canvasWidth/gridDensity){
-	context.moveTo(x-shiftX, 0);
-	context.lineTo(x-shiftX, canvasHeight);
+    for(var x = 0; x<canvasWidth+gridSize; x+=gridSize){
+	context.moveTo(x-shiftX+entities[0].size, 0);
+	context.lineTo(x-shiftX+entities[0].size, canvasHeight);
     }
-    for(var y = 0; y<canvasHeight+canvasWidth/gridDensity; y+=canvasWidth/gridDensity){
-	context.moveTo(0, y-shiftY);
-	context.lineTo(canvasWidth, y-shiftY);
+    for(var y = 0; y<canvasHeight+gridSize; y+=gridSize){
+	context.moveTo(0, y-shiftY+entities[0].size);
+	context.lineTo(canvasWidth, y-shiftY+entities[0].size);
     }
     context.stroke();
     context.closePath();
     
     //draw player
-    context.drawImage(playerImg, canvasWidth/2-entities[0].size/2, canvasHeight/2-entities[0].size/2, entities[0].size, entities[0].size);
+    context.drawImage(debugImage, canvasWidth/2-playerApparentSize/2, canvasHeight/2-playerApparentSize/2, playerApparentSize, playerApparentSize);
     
     //draw objects
     for(var i = 1; i<entities.length; i++){
-	var relX = -(entities[0].posX-entities[i].posX);
-	var relY = -(entities[0].posY-entities[i].posY);
-	context.drawImage(mobImg, canvasWidth/2+relX-entities[i].size/2, canvasHeight/2+relY-entities[i].size/2, entities[i].size, entities[i].size);
+	var relSize = entities[i].size/entities[0].size*playerApparentSize;
+
+	var scale = playerApparentSize/entities[0].size;
+	var relX = canvasWidth/2-(entities[0].posX-entities[i].posX)*scale;
+	var relY = canvasHeight/2-(entities[0].posY-entities[i].posY)*scale;
+	
+	if(relX-canvasWidth/2<=canvasWidth/2+relSize/2 && relY-canvasHeight/2<=canvasHeight/2+relSize/2){
+	    context.drawImage(debugImage, relX-relSize/2, relY-relSize/2, relSize, relSize);
+	}
     }
 }
 
@@ -129,7 +140,6 @@ function processKeyInput(){
 
 }
 function acceleratePlayer(direction, accMod){
-    console.log(entities[0].velX+" "+entities[0].velY);
     switch(direction){
 	case 1:
 	    entities[0].velY-=entities[0].acc*accMod;
@@ -181,7 +191,7 @@ function moveEntities(){
 		y = -y;
 	    }
 	}
-
+	
 	//move
 	entities[i].posX+=x;	
 	entities[i].posY+=y;
@@ -217,38 +227,37 @@ function moveEntities(){
 	    if(entities[i].velY<0){
 		y = -y;
 	    }
-
-	    entities[i].velX = x;
-	    entities[i].velY = y;
 	}
 	else if(x===0 && y!==0){
 	    if(y>0){
-		entities[i].velY-=entities[i].dec;
-		if(entities[i].velY<0){
-		    entities[i].velY = 0;
+		y-=entities[i].dec;
+		if(y<0){
+		    y = 0;
 		}
 	    }
 	    else{
-		entities[i].velY+=entities[i].dec;
-		if(entities[i].velY>0){
-		    entities[i].velY = 0;
+		y+=entities[i].dec;
+		if(y>0){
+		    y = 0;
 		}
 	    }
 	}
 	else if(x!==0 && y===0){
 	    if(x>0){
-		entities[i].velX-=entities[i].dec;
-		if(entities[i].velX<0){
-		    entities[i].velX = 0;
+		x-=entities[i].dec;
+		if(x<0){
+		    x = 0;
 		}
 	    }
 	    else{
-		entities[i].velX+=entities[i].dec;
-		if(entities[i].velX>0){
-		    entities[i].velX = 0;
+		x+=entities[i].dec;
+		if(x>0){
+		    x = 0;
 		}
 	    }
-	}   
+	}
+	entities[i].velX=x;	
+	entities[i].velY=y;
     }
 }
 function randInt(max, min){
@@ -276,7 +285,7 @@ function spawnFodder(){
 	size = 9;
 	posX = randInt(-mapSize, mapSize);
 	posY = randInt(-mapSize, mapSize);
-	entities[entities.length] = {type:"fodder", size:size, posX:posX, posY:posY, velX:0, velY:0, maxVel:0, dec:0, acc:0};
+	entities[entities.length] = {type:"fodder", size:size, posX:posX, posY:posY, velX:0, velY:0, maxVel:0, dec:0, acc:0, digesting:0};
     }
 }
 function checkCollisions(){
@@ -295,24 +304,31 @@ function checkCollisions(){
 function collide(entA, entB){
     if(entities[entA].size>entities[entB].size*consumeTreshold){
 	if(entities[entA].type!=="fodder"){
-	    entities[entA].size+=entities[entB].size*(entities[entB].size/entities[entA].size);
+	    entities[entA].digesting+=entities[entB].size*(entities[entB].size/entities[entA].size);
 	    entities.splice(entB, 1);
 	}
     }
     else if(entities[entB].size>entities[entA].size*consumeTreshold){
 	if(entities[entB].type!=="fodder"){
-	    entities[entB].size+=entities[entA].size*(entities[entA].size/entities[entB].size);
+	    entities[entB].digesting+=entities[entA].size*(entities[entA].size/entities[entB].size);
 	    entities.splice(entA, 1);
 	}
     }
-    
-    
 }
 function checkForDeath(){
     if(entities[0].type!=="player"){
 	location.reload();
     }
 }
+function digest(){
+    for(var i = 0; i<entities.length; i++){
+	console.log(entities[0].digesting);
+	if(entities[i].digesting>0){
+	    entities[i].digesting--;
+	    entities[i].size++;
+	}
+    }
+}
 
 init();
-setInterval(tick, 16);
+setInterval(tick, tickSpan);
