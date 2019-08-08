@@ -15,7 +15,7 @@ var connectionId;
 var socket;
 var foorl = "localhost:3000";
 
-var playerApparentSize = 30;
+var apparentSize = 90;
 var edibleColor = "#006600";
 var neutralColor = "#737373";
 var hostileColor = "#cc0000";
@@ -34,22 +34,16 @@ function init(){
     document.getElementById("join-button").addEventListener("click", buttonAction);
 
     //fix dpi
-    var style_height = +getComputedStyle(canvas).getPropertyValue("height").slice(0, -2);
-    var style_width = +getComputedStyle(canvas).getPropertyValue("width").slice(0, -2);
-    canvas.setAttribute('height', style_height * dpi);
-    canvas.setAttribute('width', style_width * dpi);
+    correctDPI();
+    window.onresize = correctDPI;
+    
 }
 function tick(){
     if(running){
 	checkForDeath();
 	processKeyInput();
 	draw();
-	if(resized){
-	    socket.emit("resize", JSON.stringify({canvasWidth:document.getElementById("gameCanvas").width, canvasHeight:document.getElementById("gameCanvas").height, apparentSize:playerApparentSize}));
-	    resized = false;
-	}
     }
-    console.log(entities);
 }
 
 function exchangeData(data){
@@ -73,7 +67,7 @@ function draw(){
 	context.clearRect(0, 0, canvasWidth, canvasHeight);
 
 	//draw grid
-	var gridSize = playerApparentSize*8-entities[pIndex].size;
+	var gridSize = apparentSize*8-entities[pIndex].size;
 
 	var shiftX = (entities[pIndex].posX-entities[pIndex].size*2)%(gridSize);
 	var shiftY = (entities[pIndex].posY-entities[pIndex].size*2)%(gridSize);
@@ -92,9 +86,13 @@ function draw(){
 	context.closePath();
 
 	//draw player
-	var digSize = (entities[pIndex].size+entities[pIndex].digesting)/entities[pIndex].size*playerApparentSize;
+	var digSize = (entities[pIndex].size+entities[pIndex].digesting)/entities[pIndex].size*apparentSize;
 	drawCircle(canvasWidth/2-digSize/2, canvasHeight/2-digSize/2, digSize/2, edibleColor);
-	drawCircle(canvasWidth/2-playerApparentSize/2, canvasHeight/2-playerApparentSize/2, playerApparentSize/2, neutralColor);
+	drawCircle(canvasWidth/2-apparentSize/2, canvasHeight/2-apparentSize/2, apparentSize/2, neutralColor);
+	setFont(entities[pIndex].name, apparentSize);
+	context.fillStyle = "red";
+	context.textAlign = "center";
+	context.fillText(entities[pIndex].name, canvasWidth/2, canvasHeight/2);
 
 	//draw objects
 	for(var i = 0; i<entities.length; i++){
@@ -112,6 +110,15 @@ function draw(){
 }
 
 //helper functions
+function correctDPI(){
+    var style_height = +getComputedStyle(canvas).getPropertyValue("height").slice(0, -2);
+    var style_width = +getComputedStyle(canvas).getPropertyValue("width").slice(0, -2);
+    canvas.setAttribute('height', style_height * dpi);
+    canvas.setAttribute('width', style_width * dpi);
+    if(socket){
+	socket.emit("resize", JSON.stringify({canvasWidth:document.getElementById("gameCanvas").width, canvasHeight:document.getElementById("gameCanvas").height, apparentSize:apparentSize}));
+    }
+}
 function buttonAction(){
     hosting = false;
     running = true;
@@ -132,6 +139,8 @@ function buttonAction(){
 	});
     }
     
+    socket.emit("resize", JSON.stringify({canvasWidth:document.getElementById("gameCanvas").width, canvasHeight:document.getElementById("gameCanvas").height, apparentSize:apparentSize}));
+    socket.emit("name", playerName);
     
 }
 function processKeyInput(){
@@ -179,14 +188,28 @@ function drawCircle(x, y, r, color){
     context.closePath();
 }
 function drawObject(object, canvasWidth, canvasHeight, pIndex){
-    var relSize = object.size/entities[pIndex].size*playerApparentSize;
+    var relSize = object.size/entities[pIndex].size*apparentSize;
 
-    var scale = playerApparentSize/entities[pIndex].size;
+    var scale = apparentSize/entities[pIndex].size;
     var relX = canvasWidth/2-(entities[pIndex].posX-object.posX)*scale;
     var relY = canvasHeight/2-(entities[pIndex].posY-object.posY)*scale;
 
     var entityColor = neutralColor;
     drawCircle(relX-relSize/2, relY-relSize/2, relSize/2, entityColor);
+    
+    if(object.type==="player"){
+	setFont(object.name, relSize);
+	context.fillStyle = "red";
+	context.textAlign = "center";
+	context.fillText(object.name, relX, relY);
+    }
+}
+function setFont(text, space){
+    var fontSize = 200;
+    do{
+	context.font = fontSize+"px Comic Sans MS";
+	fontSize--;
+    }while(context.measureText(text).width>=space);
 }
 
 init();
