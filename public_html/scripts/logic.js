@@ -1,19 +1,15 @@
-
 var entities = [];
 var context;
 var canvas;
 var dpi;
 var keyevents = [];
-var resized = true;
 
 var tickSpan = 8;
 var running = false;
 var serverAdress;
 var playerName;
-var connectionId;
 
 var socket;
-var foorl = "localhost:3000";
 
 var apparentSize = 90;
 var edibleColor = "#006600";
@@ -43,6 +39,7 @@ function tick(){
 	checkForDeath();
 	processKeyInput();
 	draw();
+	refreshLeaderboard();
     }
 }
 
@@ -96,14 +93,16 @@ function draw(){
 
 	//draw objects
 	for(var i = 0; i<entities.length; i++){
-	    if(entities[i].type==="cluster"){
-		//drawObject(entities[i], canvasWidth, canvasHeight, pIndex);
-		for(var ii = 0; ii<entities[i].inside.length; ii++){
-		    drawObject(entities[i].inside[ii], canvasWidth, canvasHeight, pIndex);
+	    if(entities[i].visible){
+		if(entities[i].type==="cluster"){
+		    //drawObject(entities[i], canvasWidth, canvasHeight, pIndex);
+		    for(var ii = 0; ii<entities[i].inside.length; ii++){
+			drawObject(entities[i].inside[ii], canvasWidth, canvasHeight, pIndex);
+		    }
 		}
-	    }
-	    else if(entities[i].type==="player" && i!==pIndex){
-		drawObject(entities[i], canvasWidth, canvasHeight, pIndex);
+		else if(entities[i].type==="player" && i!==pIndex){
+		    drawObject(entities[i], canvasWidth, canvasHeight, pIndex);
+		}
 	    }
 	}
     }
@@ -120,12 +119,12 @@ function correctDPI(){
     }
 }
 function buttonAction(){
-    hosting = false;
     running = true;
     serverAdress = document.getElementById("server-name").value;
     playerName = document.getElementById("player-name").value;
     document.getElementById("menu").style.setProperty("display", "none");
     document.getElementById("gameCanvas").style.setProperty("display", "initial");
+    document.getElementById("leaderboardDiv").style.setProperty("display", "initial");
     document.title = playerName+" on "+serverAdress;
 
     //open connection
@@ -210,6 +209,59 @@ function setFont(text, space){
 	context.font = fontSize+"px Comic Sans MS";
 	fontSize--;
     }while(context.measureText(text).width>=space);
+}
+function makeRow(name, frags, size){
+    var position = document.getElementById("leaderboard").childNodes.length;
+    if(position>10){
+	return;
+    }
+    
+    var tableRow = document.createElement("tr");
+    var positionColumn = document.createElement("td");
+    var nameColumn = document.createElement("td");
+    var fragsColumn = document.createElement("td");
+    var sizeColumn = document.createElement("td");
+    positionColumn.innerHTML = position;
+    nameColumn.innerHTML = name;
+    fragsColumn.innerHTML = frags;
+    sizeColumn.innerHTML = size;
+    tableRow.appendChild(positionColumn);
+    tableRow.appendChild(nameColumn);
+    tableRow.appendChild(fragsColumn);
+    tableRow.appendChild(sizeColumn);
+    return {val:size, row:tableRow};
+}
+function refreshLeaderboard(){
+    //clear leaderboard
+    while (document.getElementById("leaderboard").firstChild.nextSibling) {
+	document.getElementById("leaderboard").removeChild(document.getElementById("leaderboard").firstChild.nextSibling);
+    }
+    
+    //preapre rows
+    var rows = [];
+    for(var i = 0; i<entities.length; i++){
+	if(entities[i].type==="player"){
+	    rows[rows.length] = makeRow(entities[i].name, entities[i].frags, Math.round(entities[i].size));
+	}
+    }
+    
+    //sort leaderboard
+    for(var i = 0; i<rows.length; i++){
+	if(i<rows.length-1){
+	    if(rows[i+1].val<rows[i].val){
+		var cache = rows[i];
+		rows[i] = rows[i+1];
+		rows[i+1] = cache;
+		i = 0;
+	    }
+	}
+    }
+    
+    //fill board
+    for(var i = rows.length-1; i>=0; i--){
+	rows[i].row.childNodes[0].innerHTML = rows.length-i;
+	document.getElementById("leaderboard").appendChild(rows[i].row);
+    }
 }
 
 init();
