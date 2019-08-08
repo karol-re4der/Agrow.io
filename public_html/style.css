@@ -1,4 +1,22 @@
 #gameCanvas{
     width: 100vw;
     height: 100vh;
+    position: absolute;
+    display: none;
+}
+#menu{
+    padding: 5vh;
+    text-align: center;
+    background-color: red;
+    width: 20vw;
+    height: 60vh;
+    position: absolute;
+    top: 20vh;
+    left: 40vw;
+}
+input{
+    margin: 1vh;
+}
+button{
+    margin:1vh;
 }

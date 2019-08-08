@@ -8,7 +8,14 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
     <body style="margin:0; overflow:hidden">
-	<canvas id="gameCanvas" style="width:100vw; height:100vh"></canvas>
+	<div id="menu">
+	    <input type="text" name="player-name" id="player-name" value="default player"><br>
+	    <input type="text" name="server-name" id="server-name" value="localhost:3002"><br>
+	    <button id="join-button">Start!</button><br>
+	</div>
+	<canvas id="gameCanvas"></canvas>
+
+	<script src=" https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.4/socket.io.js"></script>
 	<script src="./bower_components/victor/build/victor.js"></script>
 	<script src="scripts/logic.js"></script>
 	<div id="resources" style="display:none">

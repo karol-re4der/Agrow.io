@@ -10,5 +10,8 @@
     ],
     "author": "re4der",
     "contributors": [],
-    "dependencies": {}
+    "dependencies": {},
+    "scripts": {
+        "start": "node public_html/index.html"
+    }
 }
